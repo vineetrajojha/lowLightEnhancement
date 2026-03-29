@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { DM_Sans, Bebas_Neue } from "next/font/google";
+import { Outfit, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 
-const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "700"], variable: '--font-dm-sans' });
+const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "700"], variable: '--font-outfit' });
 const bebasNeue = Bebas_Neue({ subsets: ["latin"], weight: "400", variable: '--font-bebas-neue' });
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${dmSans.variable} ${bebasNeue.variable} font-sans`}>
+      <body className={`${outfit.variable} ${bebasNeue.variable} font-sans`}>
         {/* Grain Overlay */}
         <div className="grain-overlay"></div>
 
