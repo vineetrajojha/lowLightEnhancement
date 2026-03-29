@@ -148,7 +148,8 @@ export default function DemoSection() {
     }, [isSliding]);
 
     return (
-            <div className="demo-container" style={{ width: '100%', maxWidth: '1000px', marginTop: '2rem', zIndex: 10, textAlign: 'left' }}>
+        <div className="animated-border-wrapper" style={{ width: '100%', maxWidth: '1000px', marginTop: '2rem', zIndex: 10 }}>
+            <div className="demo-container" style={{ textAlign: 'left' }}>
                 {/* Left: Upload */}
                 <div>
                     <h3 style={{ marginBottom: '20px' }}>Upload Low-Light Image</h3>
@@ -225,5 +226,6 @@ export default function DemoSection() {
                     )}
                 </div>
             </div>
+        </div>
     );
 }
