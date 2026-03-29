@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Low Light Image Enhancement Using Transformers</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #070A0F;
+            --text-primary: #FFFFFF;
+            --text-muted: #8B9BB4;
+            --accent-color: #5B8BF5;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--text-muted);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+        /* Grain Overlay */
+        .grain-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.03;
+        }
+
+        /* Animated Background Orbs */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            animation: float 20s infinite alternate ease-in-out;
+            opacity: 0.4;
+        }
+        .orb-1 {
+            width: 600px;
+            height: 600px;
+            background: #112A66;
+            top: -200px;
+            left: -100px;
+        }
+        .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: #1C3E8A;
+            top: 30%;
+            right: -150px;
+            animation-duration: 25s;
+        }
+        .orb-3 {
+            width: 700px;
+            height: 700px;
+            background: #0B1938;
+            bottom: -300px;
+            left: 20%;
+            animation-duration: 30s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, -50px) scale(1.05); }
+            100% { transform: translate(-20px, 40px) scale(0.95); }
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 5%;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+            background: rgba(7, 10, 15, 0.7);
+            border-bottom: 1px solid var(--card-border);
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+        .logo-icon {
+            position: relative;
+            width: 24px;
+            height: 24px;
+        }
+        .logo-icon::before, .logo-icon::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            border-radius: 4px;
+        }
+        .logo-icon::before { top: 0; left: 0; }
+        .logo-icon::after { bottom: 0; right: 0; border-color: var(--accent-color); }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s ease;
+        }
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+        .btn-pill {
+            background: var(--text-primary);
+            color: var(--bg-color);
+            padding: 10px 24px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-pill:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+        }
+        .btn-outline {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(12px);
+        }
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 15px rgba(255, 255, 255, 0.05);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 120px 20px 60px;
+        }
+        .hero h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(60px, 8vw, 96px);
+            letter-spacing: 2px;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            opacity: 0;
+            animation: fadeIn 0.8s ease forwards;
+        }
+        .hero p {
+            font-size: clamp(16px, 2vw, 20px);
+            color: var(--text-muted);
+            max-width: 600px;
+            margin-bottom: 40px;
+            opacity: 0;
+            animation: fadeIn 0.8s ease 0.2s forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .mockup-bar {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(12px);
+            border-radius: 999px;
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 40px;
+            opacity: 0;
+            animation: fadeIn 0.8s ease 0.4s forwards;
+        }
+        .mockup-bar span {
+            color: var(--text-muted);
+            flex: 1;
+            text-align: left;
+            font-size: 14px;
+        }
+        
+        .hero-btns {
+            display: flex;
+            gap: 15px;
+            opacity: 0;
+            animation: fadeIn 0.8s ease 0.6s forwards;
+        }
+
+        /* Section Settings */
+        section {
+            padding: 80px 5%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 50px;
+            letter-spacing: 1px;
+        }
+
+        /* How It Works */
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(12px);
+            transition: transform 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-6px);
+        }
+        .icon-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(91, 139, 245, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            color: var(--accent-color);
+        }
+
+        /* Demo Section */
+        .demo-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 40px;
+            backdrop-filter: blur(12px);
+        }
+        @media (max-width: 768px) {
+            .demo-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        .dnd-zone {
+            border: 2px dashed var(--text-muted);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease;
+            min-height: 250px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .dnd-zone:hover, .dnd-zone.dragover {
+            border-color: var(--accent-color);
+            background: rgba(91, 139, 245, 0.05);
+        }
+        .dnd-zone img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            display: none;
+            z-index: 2;
+        }
+        .dnd-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 1;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        .input-group input {
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--card-border);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s ease;
+            font-family: inherit;
+        }
+        .input-group input:focus {
+            border-color: var(--accent-color);
+        }
+        
+        .result-panel {
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+        }
+        .result-img-container {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .result-img-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* Slider */
+        .slider-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .slider-before {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%; /* JS will update this */
+            height: 100%;
+            overflow: hidden;
+            border-right: 2px solid white;
+            z-index: 2;
+        }
+        .slider-before img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* To keep image from squishing */
+            position: absolute;
+            top: 0; left: 0; min-width: 100%; min-height: 100%;
+        }
+        .slider-handle {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: translate(-50%, calc(350px/2 - 20px));
+            cursor: ew-resize;
+            z-index: 3;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            color: black;
+            user-select: none;
+        }
+
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .error-msg {
+            display: none;
+            background: rgba(255, 60, 60, 0.1);
+            border: 1px solid rgba(255, 60, 60, 0.4);
+            color: #ff8c8c;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            background: rgba(0,0,0,0.5);
+            border-top: 1px solid var(--card-border);
+            border-bottom: 1px solid var(--card-border);
+            padding: 40px 0;
+            margin: 60px 0;
+        }
+        .stats-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .stats-container { flex-direction: column; gap: 40px; }
+        }
+        .stat-item { flex: 1; }
+        .stat-item:not(:last-child) { border-right: 1px solid var(--card-border); }
+        @media (max-width: 768px) {
+            .stat-item:not(:last-child) { border-right: none; border-bottom: 1px solid var(--card-border); padding-bottom: 20px;}
+        }
+        .stat-number { font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--text-primary); }
+        .stat-label { color: var(--text-muted); font-size: 14px; top: -5px; position: relative;}
+
+        /* About Section */
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+        @media (max-width: 768px) { .about-grid { grid-template-columns: 1fr; } }
+        .about-text p {
+            color: var(--text-muted);
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+        .model-card-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .model-card-table td {
+            padding: 15px;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .model-card-table tr:last-child td { border-bottom: none; }
+        .model-card-table td:first-child { color: var(--text-muted); font-weight: 500;}
+        .model-card-table td:last-child { color: var(--text-primary); text-align: right;}
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--card-border);
+            padding: 40px 5%;
+            text-align: center;
+            margin-top: 80px;
+            background: rgba(7, 10, 15, 0.8);
+        }
+        .footer-logo { margin-bottom: 15px; justify-content: center; }
+        .footer-links { display: flex; gap: 20px; justify-content: center; margin-bottom: 20px; }
+        .footer-links a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+        .footer-links a:hover { color: var(--text-primary); }
+        .copyright { color: var(--text-muted); font-size: 14px; }
+
+        /* Helpers */
+        .mt-4 { margin-top: 20px; }
+        .w-full { width: 100%; }
+
+    </style>
+</head>
+<body>
+
+    <!-- SVG Grain Filter -->
+    <svg style="display:none;">
+        <filter id="grainy">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+            <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.1 0" />
+        </filter>
+    </svg>
+    <div class="grain-overlay" style="background: url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E');"></div>
+
+    <!-- Background Orbs -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <!-- Nav -->
+    <nav>
+        <div class="logo">
+            <div class="logo-icon"></div>
+            LowLight.ai
+        </div>
+        <div class="nav-links">
+            <a href="#home">Home</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#demo">Demo</a>
+            <a href="#about">About</a>
+            <a href="#">GitHub</a>
+        </div>
+        <a href="#demo" class="btn-pill">Try Now</a>
+    </nav>
+
+    <!-- Hero -->
+    <section id="home" class="hero">
+        <h1>Illuminate the Dark.</h1>
+        <p>AI-powered low-light image enhancement using Vision Transformers. Upload a dark image, get a bright, natural result in seconds.</p>
+        
+        <div class="mockup-bar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted)"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>Drop an image or paste a URL to enhance...</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </div>
+
+        <div class="hero-btns">
+            <a href="#demo" class="btn-pill">Enhance My Image</a>
+            <a href="#how-it-works" class="btn-pill btn-outline">See How It Works</a>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works">
+        <h2 class="section-title">How It Works</h2>
+        <div class="grid-3">
+            <div class="glass-card">
+                <div class="icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </div>
+                <h3>1. Upload</h3>
+                <p style="color: var(--text-muted); margin-top: 10px; font-size: 14px;">Upload your low-light or dark image in JPG/PNG format.</p>
+            </div>
+            <div class="glass-card">
+                <div class="icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                </div>
+                <h3>2. Transform</h3>
+                <p style="color: var(--text-muted); margin-top: 10px; font-size: 14px;">Our Vision Transformer model analyzes and restores brightness, contrast, and detail.</p>
+            </div>
+            <div class="glass-card">
+                <div class="icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </div>
+                <h3>3. Download</h3>
+                <p style="color: var(--text-muted); margin-top: 10px; font-size: 14px;">Get your enhanced image instantly — crisp, vivid, and natural.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo">
+        <h2 class="section-title">Enhance Your Image</h2>
+        <div class="demo-container">
+            <!-- Left: Upload -->
+            <div>
+                <h3 style="margin-bottom: 20px;">Upload Low-Light Image</h3>
+                
+                <input type="file" id="fileInput" accept="image/jpeg, image/png" style="display: none;">
+                <div class="dnd-zone" id="dndZone">
+                    <div class="dnd-content" id="dndContent">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted)"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <span style="color: var(--text-muted);">Drag & drop your image here,<br>or click to browse</span>
+                    </div>
+                    <img id="previewImg" alt="Preview">
+                </div>
+
+                <div class="input-group">
+                    <label for="apiUrl">API Endpoint (ngrok URL)</label>
+                    <input type="url" id="apiUrl" placeholder="https://xxxx-xx-xx.ngrok.io/enhance">
+                </div>
+
+                <button id="enhanceBtn" class="btn-pill w-full" style="font-size: 16px; padding: 14px;" disabled>Enhance Image</button>
+
+                <div class="error-msg" id="errorMsg"></div>
+            </div>
+
+            <!-- Right: Result -->
+            <div>
+                <h3 style="margin-bottom: 20px;">Enhanced Result</h3>
+                <div class="result-panel" id="resultPanel">
+                    <span id="resultPlaceholder" style="color: var(--text-muted);">Your enhanced image will appear here</span>
+                    <div class="spinner" id="spinner"></div>
+                    
+                    <div class="result-img-container" id="resultContainer">
+                        <!-- We use a custom Before/After slider -->
+                        <div class="slider-wrapper" id="sliderWrapper">
+                            <img id="afterImg" alt="Enhanced Result" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0;">
+                            
+                            <div class="slider-before" id="sliderBefore">
+                                <img id="beforeImg" alt="Original" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0;">
+                            </div>
+                            
+                            <div class="slider-handle" id="sliderHandle">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="downloadBtn" class="btn-pill btn-outline w-full mt-4" style="display: none; justify-content:center; align-items:center; gap:10px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Download Result
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="stats-container">
+            <div class="stat-item">
+                <div class="stat-number">93.2%</div>
+                <div class="stat-label">PSNR Improvement</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">Vision Transformer</div>
+                <div class="stat-label">Architecture</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">&lt; 2s</div>
+                <div class="stat-label">Inference Time</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Section -->
+    <section id="about">
+        <h2 class="section-title">About the Model</h2>
+        <div class="about-grid">
+            <div class="about-text">
+                <p>Traditional low-light image enhancement methods rely on simple histogram equalization or basic CNN structures, often leading to color distortion and amplified noise.</p>
+                <p>We leverage the power of <strong>Vision Transformers (ViT)</strong>. The model acts as an encoder-decoder framework utilizing self-attention mechanisms to understand global context and local feature interactions simultaneously.</p>
+                <p>Trained meticulously on the LOL (Low-Light) dataset, our approach ensures color consistency, sharpness, and vivid detail restoration. To maximize accessibility, this entire inference pipeline is hosted on Google Colab leveraging T4 GPU acceleration.</p>
+            </div>
+            <div class="glass-card">
+                <table class="model-card-table">
+                    <tr><td>Architecture</td><td>Vision Transformer (ViT)</td></tr>
+                    <tr><td>Dataset</td><td>LOL Dataset</td></tr>
+                    <tr><td>Training Platform</td><td>Google Colab (T4 GPU)</td></tr>
+                    <tr><td>Framework</td><td>PyTorch</td></tr>
+                    <tr><td>Input Size</td><td>256×256</td></tr>
+                    <tr><td>Output</td><td>RGB Enhanced Image</td></tr>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="logo footer-logo">
+            <div class="logo-icon"></div>
+            LowLight.ai
+        </div>
+        <p style="color:var(--text-muted); margin-bottom: 25px; font-size: 14px;">Low Light Image Enhancement — Powered by Transformers</p>
+        <div class="footer-links">
+            <a href="#">GitHub</a>
+            <a href="#demo">Demo</a>
+            <a href="#">Contact</a>
+        </div>
+        <p class="copyright">© 2026 LowLight.ai. Built with ❤️ using PyTorch & Google Colab.</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        const dndZone = document.getElementById('dndZone');
+        const fileInput = document.getElementById('fileInput');
+        const dndContent = document.getElementById('dndContent');
+        const previewImg = document.getElementById('previewImg');
+        const enhanceBtn = document.getElementById('enhanceBtn');
+        const apiUrlInput = document.getElementById('apiUrl');
+        
+        const resultPlaceholder = document.getElementById('resultPlaceholder');
+        const spinner = document.getElementById('spinner');
+        const resultContainer = document.getElementById('resultContainer');
+        const errorMsg = document.getElementById('errorMsg');
+        
+        const beforeImg = document.getElementById('beforeImg');
+        const afterImg = document.getElementById('afterImg');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let selectedFile = null;
+        let enhancedImageDataUrl = null;
+
+        // --- Drag & Drop Handlers ---
+        dndZone.addEventListener('click', () => fileInput.click());
+        
+        dndZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dndZone.classList.add('dragover');
+        });
+        dndZone.addEventListener('dragleave', () => {
+            dndZone.classList.remove('dragover');
+        });
+        dndZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dndZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            if (!file.type.match('image.*')) {
+                showError("Please upload a valid JPG or PNG image.");
+                return;
+            }
+            hideError();
+            selectedFile = file;
+            const url = URL.createObjectURL(file);
+            previewImg.src = url;
+            previewImg.style.display = 'block';
+            dndContent.style.display = 'none';
+            dndZone.style.borderStyle = 'solid';
+            
+            // Allow enhancement if URL is typed
+            enhanceBtn.disabled = false;
+            
+            // Set Before Image
+            beforeImg.src = url;
+        }
+
+        // --- Base64 Converter ---
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result.split(',')[1]); // get raw base64
+            reader.onerror = error => reject(error);
+        });
+
+        // --- Enhance Logic ---
+        enhanceBtn.addEventListener('click', async () => {
+            const apiUrl = apiUrlInput.value.trim();
+            if (!apiUrl) {
+                showError("Please enter a valid API Endpoint URL.");
+                return;
+            }
+            if (!selectedFile) {
+                showError("Please upload an image first.");
+                return;
+            }
+
+            hideError();
+            
+            // Start Load State
+            enhanceBtn.textContent = 'Processing...';
+            enhanceBtn.disabled = true;
+            resultPlaceholder.style.display = 'none';
+            resultContainer.style.display = 'none';
+            spinner.style.display = 'block';
+            downloadBtn.style.display = 'none';
+
+            try {
+                const base64 = await toBase64(selectedFile);
+                
+                // Fetch Request
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64 })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API returned status ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (!data.enhanced_image) {
+                    throw new Error("Invalid response from API (missing enhanced_image).");
+                }
+
+                // Append mime type if API just returns raw base64
+                let imageSrc = data.enhanced_image;
+                if (!imageSrc.startsWith('data:image')) {
+                    imageSrc = 'data:image/jpeg;base64,' + imageSrc;
+                }
+                enhancedImageDataUrl = imageSrc;
+
+                // Show Result
+                afterImg.src = enhancedImageDataUrl;
+                spinner.style.display = 'none';
+                resultContainer.style.display = 'block';
+                downloadBtn.style.display = 'flex';
+                
+                // Reset Slider
+                resetSlider();
+
+            } catch (err) {
+                console.error(err);
+                spinner.style.display = 'none';
+                resultPlaceholder.style.display = 'block';
+                showError("Enhancement failed: " + err.message);
+            } finally {
+                enhanceBtn.textContent = 'Enhance Image';
+                enhanceBtn.disabled = false;
+            }
+        });
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.style.display = 'block';
+        }
+        function hideError() {
+            errorMsg.style.display = 'none';
+        }
+
+        // --- Download Logic ---
+        downloadBtn.addEventListener('click', () => {
+            if (enhancedImageDataUrl) {
+                const a = document.createElement('a');
+                a.href = enhancedImageDataUrl;
+                a.download = 'enhanced-image.jpg';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        });
+
+        // --- Before / After Slider Logic ---
+        const sliderWrapper = document.getElementById('sliderWrapper');
+        const sliderBefore = document.getElementById('sliderBefore');
+        const sliderHandle = document.getElementById('sliderHandle');
+        
+        let isSliding = false;
+
+        function resetSlider() {
+            sliderBefore.style.width = '50%';
+            sliderHandle.style.left = '50%';
+            // Fix image widths to match container dynamically
+            const cw = sliderWrapper.offsetWidth;
+            const ch = sliderWrapper.offsetHeight;
+            sliderBefore.querySelector('img').style.width = cw + 'px';
+            sliderBefore.querySelector('img').style.height = ch + 'px';
+        }
+
+        sliderHandle.addEventListener('mousedown', () => isSliding = true);
+        window.addEventListener('mouseup', () => isSliding = false);
+        
+        // Touch support
+        sliderHandle.addEventListener('touchstart', () => isSliding = true);
+        window.addEventListener('touchend', () => isSliding = false);
+
+        const moveSlider = (clientX) => {
+            if (!isSliding) return;
+            const rect = sliderWrapper.getBoundingClientRect();
+            let x = clientX - rect.left;
+            
+            // Constrain
+            if (x < 0) x = 0;
+            if (x > rect.width) x = rect.width;
+            
+            const percentage = (x / rect.width) * 100;
+            sliderBefore.style.width = `${percentage}%`;
+            sliderHandle.style.left = `${percentage}%`;
+        };
+
+        window.addEventListener('mousemove', (e) => moveSlider(e.clientX));
+        window.addEventListener('touchmove', (e) => moveSlider(e.touches[0].clientX));
+        
+        // On resize, ensure the inner image sizes adjust correctly
+        window.addEventListener('resize', () => {
+            if(resultContainer.style.display === 'block') {
+                const cw = sliderWrapper.offsetWidth;
+                const ch = sliderWrapper.offsetHeight;
+                sliderBefore.querySelector('img').style.width = cw + 'px';
+                sliderBefore.querySelector('img').style.height = ch + 'px';
+            }
+        });
+
+    </script>
+</body>
+</html>
